@@ -56,6 +56,24 @@ pub enum Message<'a> {
 	},
 }
 
+impl<'a> Message<'a> {
+	/// Byte length of the message data buffer.
+	pub fn len(&self) -> usize {
+		match *self {
+			Message::Read { ref data, .. } => data.len(),
+			Message::Write { ref data, .. } => data.len(),
+		}
+	}
+
+	/// Address of the message's slave.
+	pub fn address(&self) -> u16 {
+		match *self {
+			Message::Read { address, .. } => address,
+			Message::Write { address, .. } => address,
+		}
+	}
+}
+
 bitflags! {
 	/// Flags to work around device quirks.
 	#[derive(Default)]
