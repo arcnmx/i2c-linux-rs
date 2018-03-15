@@ -1,16 +1,20 @@
 #![deny(missing_docs)]
 #![doc(html_root_url = "http://arcnmx.github.io/i2c-linux-rs/")]
 
-//! A safe interface to the Linux I2C subsystem from userspace.
+//! A safe interface to the Linux I2C and SMBus userspace subsystem.
 //!
 //! # Example
 //!
 //! ```rust,no_run
+//! extern crate i2c_linux;
+//! use i2c_linux::I2c;
+//!
 //! # fn main_res() -> ::std::io::Result<()> {
 //! let mut i2c = I2c::from_path("/dev/i2c-0")?;
-//! i2c.i2c_slave_address(0x50)?;
+//! i2c.smbus_set_slave_address(0x50)?;
 //! let data = i2c.smbus_read_byte()?;
 //! println!("Read I2C data: {}", data);
+//! # Ok(())
 //! # }
 //! # fn main() { main_res().unwrap() }
 //! ```
