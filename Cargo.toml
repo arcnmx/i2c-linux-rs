@@ -1,0 +1,19 @@
+[package]
+name = "i2c-linux"
+version = "0.0.1"
+authors = ["arcnmx"]
+
+description = "Linux I2C device interface"
+keywords = ["i2c", "i2c-dev", "i2cdev", "smbus"]
+
+documentation = "http://arcnmx.github.io/i2c-linux-rs/i2c_linux"
+repository = "https://github.com/arcnmx/i2c-linux-rs"
+readme = "README.md"
+license = "MIT"
+
+[badges]
+travis-ci = { repository = "arcnmx/i2c-linux-rs" }
+maintenance = { status = "passively-maintained" }
+
+[dependencies]
+i2c-linux-sys = "^0.0.2"
