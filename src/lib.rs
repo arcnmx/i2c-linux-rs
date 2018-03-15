@@ -208,7 +208,7 @@ impl<I: AsRawFd> I2c<I> {
 			.for_each(|(out, msg)| *out = match *msg {
 				Message::Read { address, ref mut data, flags } => i2c::i2c_msg {
 					addr: address,
-					flags: i2c::Flags::from_bits_truncate(flags.bits()),
+					flags: i2c::Flags::from_bits_truncate(flags.bits()) | i2c::Flags::RD,
 					len: data.len() as _,
 					buf: data.as_mut_ptr(),
 				},
