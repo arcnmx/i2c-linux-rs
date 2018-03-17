@@ -16,6 +16,6 @@ travis-ci = { repository = "arcnmx/i2c-linux-rs" }
 maintenance = { status = "passively-maintained" }
 
 [dependencies]
-i2c-linux-sys = "^0.0.3"
+i2c-linux-sys = "^0.0.4"
 resize-slice = "^0.1.2"
 bitflags = "^1.0.1"
