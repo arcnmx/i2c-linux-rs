@@ -11,7 +11,7 @@
 //!
 //! # fn main_res() -> ::std::io::Result<()> {
 //! let mut i2c = I2c::from_path("/dev/i2c-0")?;
-//! i2c.smbus_set_slave_address(0x50)?;
+//! i2c.smbus_set_slave_address(0x50, false)?;
 //! let data = i2c.smbus_read_byte()?;
 //! println!("Read I2C data: {}", data);
 //! # Ok(())
