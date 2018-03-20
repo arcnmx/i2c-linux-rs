@@ -11,6 +11,7 @@ cache:
 env:
   matrix:
   - CARGO_FEATURES=
+  - CARGO_FEATURES=i2c
   global:
   - CARGO_QUIET=
   - CARGO_INCREMENTAL=0
@@ -27,7 +28,7 @@ deploy:
   on:
     tags: true
     all_branches: true
-    condition: "$TRAVIS_RUST_VERSION = stable"
+    condition: "$TRAVIS_RUST_VERSION = stable && $CARGO_FEATURES = i2c"
 before_deploy:
 - cargo doc
 - cargo package

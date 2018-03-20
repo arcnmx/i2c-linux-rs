@@ -23,6 +23,8 @@
 extern crate bitflags;
 extern crate resize_slice;
 extern crate i2c_linux_sys as i2c;
+#[cfg(feature = "i2c")]
+extern crate i2c as i2c_gen;
 
 use std::time::Duration;
 use std::path::Path;
@@ -124,9 +126,54 @@ bitflags! {
         /// Requires `Functionality::NO_START`
         const NO_START = i2c::I2C_M_NOSTART;
         /// Force a STOP condition after this message.
+        ///
+        /// Requires `Functionality::PROTOCOL_MANGLING`
         const STOP = i2c::I2C_M_STOP;
     }
 }
+
+#[cfg(feature = "i2c")]
+macro_rules! impl_flags {
+    ($my:ident >< $f:ident => { $($tt:tt)* }) => {
+        impl_flags! { @impl $my >< $f => { $($tt)* } }
+        impl_flags! { @impl $f >< $my => { $($tt)* } }
+    };
+    (@impl $my:ident >< $f:ident => {
+        $($flag:ident,)*
+    }) => {
+        impl From<$my> for $f {
+            fn from(f: $my) -> Self {
+                let mut out = Self::empty();
+                $(
+                if f.contains($my::$flag) {
+                    out.set($f::$flag, true);
+                }
+                )*
+                out
+            }
+        }
+    };
+}
+
+#[cfg(feature = "i2c")]
+use i2c_gen::{ReadFlags as I2cReadFlags, WriteFlags as I2cWriteFlags};
+
+#[cfg(feature = "i2c")]
+impl_flags! { ReadFlags >< I2cReadFlags => {
+    RECEIVE_LEN,
+    NACK,
+    REVERSE_RW,
+    NO_START,
+    STOP,
+} }
+
+#[cfg(feature = "i2c")]
+impl_flags! { WriteFlags >< I2cWriteFlags => {
+    IGNORE_NACK,
+    REVERSE_RW,
+    NO_START,
+    STOP,
+} }
 
 /// A safe wrapper around an I2C device.
 pub struct I2c<I> {
@@ -185,6 +232,7 @@ impl FromRawFd for I2c<File> {
     }
 }
 
+// TODO: add assertions for block lengths, return a proper io::Error
 impl<I: AsRawFd> I2c<I> {
     /// Sets the number of times to retry communication before failing.
     pub fn i2c_set_retries(&self, value: usize) -> io::Result<()> {
@@ -198,12 +246,9 @@ impl<I: AsRawFd> I2c<I> {
     }
 
     /// Set the slave address to communicate with.
-    pub fn smbus_set_slave_address(&self, address: u16) -> io::Result<()> {
-        if address & 0xff00 != 0 {
-            i2c::i2c_set_slave_address_10bit(self.as_raw_fd(), true)?
-        } else {
-            i2c::i2c_set_slave_address_10bit(self.as_raw_fd(), false)?
-        }
+    pub fn smbus_set_slave_address(&self, address: u16, tenbit: bool) -> io::Result<()> {
+        i2c::i2c_set_slave_address_10bit(self.as_raw_fd(), tenbit)?;
+        // TODO: ignore failure when tenbit is false in case driver doesn't support it?
 
         i2c::i2c_set_slave_address(self.as_raw_fd(), address, false)
     }
@@ -217,6 +262,26 @@ impl<I: AsRawFd> I2c<I> {
     /// before attempting to use certain SMBus commands or I2C flags.
     pub fn i2c_functionality(&self) -> io::Result<Functionality> {
         i2c::i2c_get_functionality(self.as_raw_fd())
+    }
+
+    /// `i2c_transfer` capabilities of the I2C device. These should be checked
+    /// before attempting to use any of the protocol mangling flags.
+    pub fn i2c_transfer_flags(&self) -> io::Result<(ReadFlags, WriteFlags)> {
+        let func = self.i2c_functionality()?;
+        let (mut read, mut write) = (ReadFlags::empty(), WriteFlags::empty());
+        if func.contains(Functionality::PROTOCOL_MANGLING) {
+            read.set(ReadFlags::NACK, true);
+            read.set(ReadFlags::REVERSE_RW, true);
+            read.set(ReadFlags::STOP, true);
+            write.set(WriteFlags::IGNORE_NACK, true);
+            write.set(WriteFlags::REVERSE_RW, true);
+            write.set(WriteFlags::STOP, true);
+        }
+        if func.contains(Functionality::NO_START) {
+            read.set(ReadFlags::NO_START, true);
+            write.set(WriteFlags::NO_START, true);
+        }
+        Ok((read, write))
     }
 
     /// Executes a queue of I2C transfers, separated by repeat START conditions.
@@ -260,7 +325,7 @@ impl<I: AsRawFd> I2c<I> {
         i2c::i2c_smbus_write_quick(self.as_raw_fd(), value)
     }
 
-    /// Deads a single byte from a device without specifying a register.
+    /// Reads a single byte from a device without specifying a register.
     ///
     /// Some devices are so simple that this interface is enough; for others, it
     /// is a shorthand if you want to read the same register as in the previous
@@ -348,5 +413,121 @@ impl<I: Write> Write for I2c<I> {
 
     fn flush(&mut self) -> io::Result<()> {
         self.inner.flush()
+    }
+}
+
+#[cfg(feature = "i2c")]
+impl<I: AsRawFd> i2c_gen::Master for I2c<I> {
+    type Error = io::Error;
+
+    fn set_slave_address(&mut self, addr: u16, tenbit: bool) -> Result<(), Self::Error> {
+        I2c::smbus_set_slave_address(self, addr, tenbit)
+    }
+}
+
+#[cfg(feature = "i2c")]
+impl<I: AsRawFd> i2c_gen::Smbus for I2c<I> {
+    fn smbus_write_quick(&mut self, value: bool) -> Result<(), Self::Error> {
+        I2c::smbus_write_quick(self, if value { ReadWrite::Write } else { ReadWrite::Read })
+    }
+
+    fn smbus_read_byte(&mut self) -> Result<u8, Self::Error> {
+        I2c::smbus_read_byte(self)
+    }
+
+    fn smbus_write_byte(&mut self, value: u8) -> Result<(), Self::Error> {
+        I2c::smbus_write_byte(self, value)
+    }
+
+    fn smbus_read_byte_data(&mut self, command: u8) -> Result<u8, Self::Error> {
+        I2c::smbus_read_byte_data(self, command)
+    }
+
+    fn smbus_write_byte_data(&mut self, command: u8, value: u8) -> Result<(), Self::Error> {
+        I2c::smbus_write_byte_data(self, command, value)
+    }
+
+    fn smbus_read_word_data(&mut self, command: u8) -> Result<u16, Self::Error> {
+        I2c::smbus_read_word_data(self, command)
+    }
+
+    fn smbus_write_word_data(&mut self, command: u8, value: u16) -> Result<(), Self::Error> {
+        I2c::smbus_write_word_data(self, command, value)
+    }
+
+    fn smbus_process_call(&mut self, command: u8, value: u16) -> Result<u16, Self::Error> {
+        I2c::smbus_process_call(self, command, value)
+    }
+
+    fn smbus_read_block_data(&mut self, command: u8, value: &mut [u8]) -> Result<usize, Self::Error> {
+        I2c::smbus_read_block_data(self, command, value)
+    }
+
+    fn smbus_write_block_data(&mut self, command: u8, value: &[u8]) -> Result<(), Self::Error> {
+        I2c::smbus_write_block_data(self, command, value)
+    }
+}
+
+#[cfg(feature = "i2c")]
+impl<I: AsRawFd> i2c_gen::Smbus20 for I2c<I> {
+    fn smbus_process_call_block(&mut self, command: u8, write: &[u8], read: &mut [u8]) -> Result<usize, Self::Error> {
+        I2c::smbus_block_process_call(self, command, write, read)
+    }
+}
+
+#[cfg(feature = "i2c")]
+impl<I: AsRawFd> i2c_gen::SmbusPec for I2c<I> {
+    fn smbus_set_pec(&mut self, pec: bool) -> Result<(), Self::Error> {
+        I2c::smbus_set_pec(self, pec)
+    }
+}
+
+#[cfg(feature = "i2c")]
+impl<I: AsRawFd> i2c_gen::I2c for I2c<I> {
+    fn i2c_read_block_data(&mut self, command: u8, value: &mut [u8]) -> Result<usize, Self::Error> {
+        I2c::i2c_read_block_data(self, command, value)
+    }
+
+    fn i2c_write_block_data(&mut self, command: u8, value: &[u8]) -> Result<(), Self::Error> {
+        I2c::i2c_write_block_data(self, command, value)
+    }
+}
+
+#[cfg(feature = "i2c")]
+impl<I: AsRawFd> i2c_gen::BulkTransfer for I2c<I> {
+    fn i2c_transfer_support(&mut self) -> Result<(i2c_gen::ReadFlags, i2c_gen::WriteFlags), Self::Error> {
+        I2c::i2c_transfer_flags(self).map(|(read, write)| (read.into(), write.into()))
+    }
+
+    fn i2c_transfer(&mut self, messages: &mut [i2c_gen::Message]) -> Result<(), Self::Error> {
+        assert!(messages.len() <= self.message_buffer.len());
+
+        self.message_buffer.iter_mut().zip(messages.iter_mut())
+            .for_each(|(out, msg)| *out = match *msg {
+                i2c_gen::Message::Read { address, ref mut data, flags } => i2c::i2c_msg {
+                    addr: address,
+                    flags: i2c::Flags::from_bits_truncate(ReadFlags::from(flags).bits()) | i2c::Flags::RD,
+                    len: data.len() as _,
+                    buf: data.as_mut_ptr(),
+                },
+                i2c_gen::Message::Write { address, ref data, flags } => i2c::i2c_msg {
+                    addr: address,
+                    flags: i2c::Flags::from_bits_truncate(WriteFlags::from(flags).bits()),
+                    len: data.len() as _,
+                    buf: data.as_ptr() as *mut _,
+                },
+            });
+
+        let res = unsafe {
+            i2c::i2c_rdwr(self.as_raw_fd(), &mut self.message_buffer[..messages.len()])?;
+        };
+
+        self.message_buffer.iter().zip(messages.iter_mut())
+            .for_each(|(msg, out)| match *out {
+                i2c_gen::Message::Read { ref mut data, .. } => data.resize_to(msg.len as usize),
+                i2c_gen::Message::Write { .. } => (),
+            });
+
+        Ok(res)
     }
 }
