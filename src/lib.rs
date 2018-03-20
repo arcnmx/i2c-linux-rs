@@ -428,7 +428,7 @@ impl<I: AsRawFd> i2c_gen::Master for I2c<I> {
 #[cfg(feature = "i2c")]
 impl<I: AsRawFd> i2c_gen::Smbus for I2c<I> {
     fn smbus_write_quick(&mut self, value: bool) -> Result<(), Self::Error> {
-        I2c::smbus_write_quick(self, if value { ReadWrite::Write } else { ReadWrite::Read })
+        I2c::smbus_write_quick(self, if value { ReadWrite::Read } else { ReadWrite::Write })
     }
 
     fn smbus_read_byte(&mut self) -> Result<u8, Self::Error> {
