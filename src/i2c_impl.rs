@@ -8,7 +8,9 @@ use super::{I2c, ReadFlags, WriteFlags, ReadWrite};
 
 impl<I: AsRawFd> i2c::Master for I2c<I> {
     type Error = io::Error;
+}
 
+impl<I: AsRawFd> i2c::Address for I2c<I> {
     fn set_slave_address(&mut self, addr: u16, tenbit: bool) -> Result<(), Self::Error> {
         I2c::smbus_set_slave_address(self, addr, tenbit)
     }
@@ -68,7 +70,7 @@ impl<I: AsRawFd> i2c::SmbusPec for I2c<I> {
     }
 }
 
-impl<I: AsRawFd> i2c::I2c for I2c<I> {
+impl<I: AsRawFd> i2c::BlockTransfer for I2c<I> {
     fn i2c_read_block_data(&mut self, command: u8, value: &mut [u8]) -> Result<usize, Self::Error> {
         I2c::i2c_read_block_data(self, command, value)
     }
