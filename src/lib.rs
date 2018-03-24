@@ -31,7 +31,7 @@ use std::path::Path;
 use std::os::unix::io::{AsRawFd, IntoRawFd, FromRawFd, RawFd};
 use std::io::{self, Read, Write};
 use std::fs::{File, OpenOptions};
-use std::mem;
+use std::{mem, cmp};
 use resize_slice::ResizeSlice;
 
 pub use i2c::{SmbusReadWrite as ReadWrite, Functionality};
@@ -329,6 +329,9 @@ impl<I: AsRawFd> I2c<I> {
     ///
     /// Returns the amount of data read.
     pub fn smbus_read_block_data(&mut self, command: u8, value: &mut [u8]) -> io::Result<usize> {
+        let len = cmp::min(value.len(), i2c::I2C_SMBUS_BLOCK_MAX);
+        let value = &mut value[..len];
+
         i2c::i2c_smbus_read_block_data(self.as_raw_fd(), command, value)
     }
 
@@ -342,19 +345,31 @@ impl<I: AsRawFd> I2c<I> {
     ///
     /// This was introduced in SMBus 2.0
     pub fn smbus_block_process_call(&mut self, command: u8, write: &[u8], read: &mut [u8]) -> io::Result<usize> {
+        let len = cmp::min(read.len(), i2c::I2C_SMBUS_BLOCK_MAX);
+        let read = &mut read[..len];
+
         i2c::i2c_smbus_block_process_call(self.as_raw_fd(), command, write, read)
     }
 
     /// Reads a block of bytes from the designated device register.
     ///
-    /// Unlike smbus_read_block_data this does not receive a data length.
+    /// Unlike smbus_read_block_data this does not receive a data length. This
+    /// is limited to 32 bytes due to the use of the Linux SMBus interface. Use
+    /// `i2c_transfer()` if more data is needed. `write()`+`read()` may also be
+    /// an option, though will produce an I2C STOP condition between the
+    /// transfers, which may be undesirable.
     pub fn i2c_read_block_data(&mut self, command: u8, value: &mut [u8]) -> io::Result<usize> {
+        let len = cmp::min(value.len(), i2c::I2C_SMBUS_BLOCK_MAX);
+        let value = &mut value[..len];
+
         i2c::i2c_smbus_read_i2c_block_data(self.as_raw_fd(), command, value)
     }
 
     /// Writes a block of bytes from the designated device register.
     ///
     /// Unlike smbus_write_block_data this does not transfer the data length.
+    /// This is limited to 32 bytes due to the use of the Linux SMBus interface.
+    /// Use `i2c_transfer()` or `write()` instead if more data is needed.
     pub fn i2c_write_block_data(&mut self, command: u8, value: &[u8]) -> io::Result<()> {
         i2c::i2c_smbus_write_i2c_block_data(self.as_raw_fd(), command, value)
     }
