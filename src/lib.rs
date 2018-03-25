@@ -31,7 +31,7 @@ use std::path::Path;
 use std::os::unix::io::{AsRawFd, IntoRawFd, FromRawFd, RawFd};
 use std::io::{self, Read, Write};
 use std::fs::{File, OpenOptions};
-use std::{mem, cmp};
+use std::{mem, cmp, iter};
 use resize_slice::ResizeSlice;
 
 pub use i2c::{SmbusReadWrite as ReadWrite, Functionality};
@@ -143,6 +143,9 @@ bitflags! {
 pub struct I2c<I> {
     inner: I,
     message_buffer: Box<[i2c::i2c_msg; i2c::I2C_RDWR_IOCTL_MAX_MSGS]>,
+    address: Option<u16>,
+    address_10bit: bool,
+    functionality: Option<Functionality>,
 }
 
 impl I2c<File> {
@@ -159,6 +162,9 @@ impl<I> I2c<I> {
         I2c {
             inner: device,
             message_buffer: Box::new(unsafe { mem::zeroed() }),
+            address: None,
+            address_10bit: false,
+            functionality: None,
         }
     }
 
@@ -198,6 +204,16 @@ impl FromRawFd for I2c<File> {
 
 // TODO: add assertions for block lengths, return a proper io::Error
 impl<I: AsRawFd> I2c<I> {
+    fn update_functionality(&mut self) -> Option<Functionality> {
+        if let Some(func) = self.functionality.clone() {
+            Some(func)
+        } else {
+            let functionality = self.i2c_functionality().ok();
+            self.functionality = functionality.clone();
+            functionality
+        }
+    }
+
     /// Sets the number of times to retry communication before failing.
     pub fn i2c_set_retries(&self, value: usize) -> io::Result<()> {
         i2c::i2c_set_retries(self.as_raw_fd(), value)
@@ -210,11 +226,21 @@ impl<I: AsRawFd> I2c<I> {
     }
 
     /// Set the slave address to communicate with.
-    pub fn smbus_set_slave_address(&self, address: u16, tenbit: bool) -> io::Result<()> {
-        i2c::i2c_set_slave_address_10bit(self.as_raw_fd(), tenbit)?;
-        // TODO: ignore failure when tenbit is false in case driver doesn't support it?
+    pub fn smbus_set_slave_address(&mut self, address: u16, tenbit: bool) -> io::Result<()> {
+        if let Some(func) = self.update_functionality() {
+            if func.contains(Functionality::TENBIT_ADDR) || tenbit {
+                i2c::i2c_set_slave_address_10bit(self.as_raw_fd(), tenbit)?;
+            }
+        }
 
-        i2c::i2c_set_slave_address(self.as_raw_fd(), address, false)
+        let res = i2c::i2c_set_slave_address(self.as_raw_fd(), address, false);
+
+        if res.is_ok() {
+            self.address = Some(address);
+            self.address_10bit = tenbit;
+        }
+
+        res
     }
 
     /// Enable or disable SMBus Packet Error Checking.
@@ -338,9 +364,7 @@ impl<I: AsRawFd> I2c<I> {
     /// Returns the amount of data read.
     pub fn smbus_read_block_data(&mut self, command: u8, value: &mut [u8]) -> io::Result<usize> {
         let len = cmp::min(value.len(), i2c::I2C_SMBUS_BLOCK_MAX);
-        let value = &mut value[..len];
-
-        i2c::i2c_smbus_read_block_data(self.as_raw_fd(), command, value)
+        i2c::i2c_smbus_read_block_data(self.as_raw_fd(), command, &mut value[..len])
     }
 
     /// Write up to 32 bytes to the designated device register.
@@ -353,10 +377,8 @@ impl<I: AsRawFd> I2c<I> {
     ///
     /// This was introduced in SMBus 2.0
     pub fn smbus_block_process_call(&mut self, command: u8, write: &[u8], read: &mut [u8]) -> io::Result<usize> {
-        let len = cmp::min(read.len(), i2c::I2C_SMBUS_BLOCK_MAX);
-        let read = &mut read[..len];
-
-        i2c::i2c_smbus_block_process_call(self.as_raw_fd(), command, write, read)
+        let read_len = cmp::min(read.len(), i2c::I2C_SMBUS_BLOCK_MAX);
+        i2c::i2c_smbus_block_process_call(self.as_raw_fd(), command, write, &mut read[..read_len])
     }
 
     /// Reads a block of bytes from the designated device register.
@@ -367,10 +389,32 @@ impl<I: AsRawFd> I2c<I> {
     /// an option, though will produce an I2C STOP condition between the
     /// transfers, which may be undesirable.
     pub fn i2c_read_block_data(&mut self, command: u8, value: &mut [u8]) -> io::Result<usize> {
-        let len = cmp::min(value.len(), i2c::I2C_SMBUS_BLOCK_MAX);
-        let value = &mut value[..len];
+        // Compatibility/emulation
+        if let Some(func) = self.update_functionality() {
+            if !func.contains(Functionality::SMBUS_READ_I2C_BLOCK) || value.len() > i2c::I2C_SMBUS_BLOCK_MAX {
+                if func.contains(Functionality::I2C) {
+                    if let Some(address) = self.address {
+                        let mut msgs = [
+                            Message::Write {
+                                address: address,
+                                data: &[command],
+                                flags: if self.address_10bit { WriteFlags::TENBIT_ADDR } else { WriteFlags::default() },
+                            },
+                            Message::Read {
+                                address: address,
+                                data: value,
+                                flags: if self.address_10bit { ReadFlags::TENBIT_ADDR } else { ReadFlags::default() },
+                            },
+                        ];
+                        return self.i2c_transfer(&mut msgs)
+                            .map(|_| msgs[1].len())
+                    }
+                }
+            }
+        }
 
-        i2c::i2c_smbus_read_i2c_block_data(self.as_raw_fd(), command, value)
+        let len = cmp::min(value.len(), i2c::I2C_SMBUS_BLOCK_MAX);
+        i2c::i2c_smbus_read_i2c_block_data(self.as_raw_fd(), command, &mut value[..len])
     }
 
     /// Writes a block of bytes from the designated device register.
@@ -379,6 +423,41 @@ impl<I: AsRawFd> I2c<I> {
     /// This is limited to 32 bytes due to the use of the Linux SMBus interface.
     /// Use `i2c_transfer()` or `write()` instead if more data is needed.
     pub fn i2c_write_block_data(&mut self, command: u8, value: &[u8]) -> io::Result<()> {
+        // Compatibility/emulation
+        if let Some(func) = self.update_functionality() {
+            if !func.contains(Functionality::SMBUS_WRITE_I2C_BLOCK) || value.len() > i2c::I2C_SMBUS_BLOCK_MAX {
+                if func.contains(Functionality::I2C) {
+                    if let Some(address) = self.address {
+                        let flags = if self.address_10bit { WriteFlags::TENBIT_ADDR } else { WriteFlags::default() };
+                        return if func.contains(Functionality::NO_START) {
+                            self.i2c_transfer(&mut [
+                                Message::Write {
+                                    address: address,
+                                    data: &[command],
+                                    flags: flags,
+                                },
+                                Message::Write {
+                                    address: address,
+                                    data: value,
+                                    flags: flags | WriteFlags::NO_START,
+                                },
+                            ])
+                        } else {
+                            self.i2c_transfer(&mut [
+                                Message::Write {
+                                    address: address,
+                                    data: &iter::once(command).chain(value.iter().cloned()).collect::<Vec<_>>(),
+                                    flags: flags,
+                                },
+                            ])
+                        }
+                    } else {
+                        // could also just use i2c_transfer, not much difference
+                    }
+                }
+            }
+        }
+
         i2c::i2c_smbus_write_i2c_block_data(self.as_raw_fd(), command, value)
     }
 }
