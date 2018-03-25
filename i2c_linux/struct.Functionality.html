@@ -59,9 +59,13 @@
 <div class='impl-items'><h4 id='associatedconstant.I2C' class="associatedconstant"><span id='I2C.v' class='invisible'><code>pub const <a href='#associatedconstant.I2C' class="constant"><b>I2C</b></a>: <a class="struct" href="../i2c_linux/struct.Functionality.html" title="struct i2c_linux::Functionality">Functionality</a></code></span></h4>
 <div class='docblock'><pre class="rust ">
 <span class="ident">I2C</span>: <span class="ident">Functionality</span> <span class="op">=</span> <span class="ident">Functionality</span>{<span class="ident">bits</span>: <span class="ident">I2C_FUNC_I2C</span>,}</pre>
+<p>Plain i2c-level commands (<code>I2C_RDWR</code>)</p>
+
+<p>Pure SMBus adapters typically can not do these.</p>
 </div><h4 id='associatedconstant.TENBIT_ADDR' class="associatedconstant"><span id='TENBIT_ADDR.v' class='invisible'><code>pub const <a href='#associatedconstant.TENBIT_ADDR' class="constant"><b>TENBIT_ADDR</b></a>: <a class="struct" href="../i2c_linux/struct.Functionality.html" title="struct i2c_linux::Functionality">Functionality</a></code></span></h4>
 <div class='docblock'><pre class="rust ">
 <span class="ident">TENBIT_ADDR</span>: <span class="ident">Functionality</span> <span class="op">=</span> <span class="ident">Functionality</span>{<span class="ident">bits</span>: <span class="ident">I2C_FUNC_10BIT_ADDR</span>,}</pre>
+<p>Handles the 10-bit address extensions</p>
 </div><h4 id='associatedconstant.PROTOCOL_MANGLING' class="associatedconstant"><span id='PROTOCOL_MANGLING.v' class='invisible'><code>pub const <a href='#associatedconstant.PROTOCOL_MANGLING' class="constant"><b>PROTOCOL_MANGLING</b></a>: <a class="struct" href="../i2c_linux/struct.Functionality.html" title="struct i2c_linux::Functionality">Functionality</a></code></span></h4>
 <div class='docblock'><pre class="rust ">
 <span class="ident">PROTOCOL_MANGLING</span>: <span class="ident">Functionality</span> <span class="op">=</span> <span class="ident">Functionality</span>{<span class="ident">bits</span>: <span class="ident">I2C_FUNC_PROTOCOL_MANGLING</span>,}</pre>
