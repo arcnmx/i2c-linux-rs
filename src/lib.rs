@@ -83,6 +83,8 @@ bitflags! {
     /// Flags to work around device quirks.
     #[derive(Default)]
     pub struct ReadFlags: u16 {
+        /// This is a 10-bit chip address.
+        const TENBIT_ADDR = i2c::I2C_M_TEN;
         /// The first received byte will indicate the remaining length of the transfer.
         const RECEIVE_LEN = i2c::I2C_M_RECV_LEN;
         /// NACK bit is generated for this read.
@@ -112,6 +114,8 @@ bitflags! {
     /// Flags to work around device quirks.
     #[derive(Default)]
     pub struct WriteFlags: u16 {
+        /// This is a 10-bit chip address.
+        const TENBIT_ADDR = i2c::I2C_M_TEN;
         /// Treat NACK as an ACK and prevent it from interrupting the transfer.
         ///
         /// Requires `Functionality::PROTOCOL_MANGLING`
@@ -240,6 +244,10 @@ impl<I: AsRawFd> I2c<I> {
         if func.contains(Functionality::NO_START) {
             read.set(ReadFlags::NO_START, true);
             write.set(WriteFlags::NO_START, true);
+        }
+        if func.contains(Functionality::TENBIT_ADDR) {
+            read.set(ReadFlags::TENBIT_ADDR, true);
+            write.set(WriteFlags::TENBIT_ADDR, true);
         }
         Ok((read, write))
     }
