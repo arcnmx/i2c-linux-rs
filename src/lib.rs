@@ -25,6 +25,8 @@ extern crate resize_slice;
 extern crate i2c_linux_sys as i2c;
 #[cfg(feature = "i2c")]
 extern crate i2c as i2c_gen;
+#[cfg(feature = "udev")]
+extern crate udev;
 
 use std::time::Duration;
 use std::path::Path;
@@ -35,6 +37,12 @@ use std::{mem, cmp, iter};
 use resize_slice::ResizeSlice;
 
 pub use i2c::{SmbusReadWrite as ReadWrite, Functionality};
+
+#[cfg(feature = "udev")]
+mod enumerate;
+
+#[cfg(feature = "udev")]
+pub use enumerate::Enumerator;
 
 #[cfg(feature = "i2c")]
 mod i2c_impl;
