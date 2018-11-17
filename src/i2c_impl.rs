@@ -88,7 +88,7 @@ impl<I: AsRawFd> i2c::BulkTransfer for I2c<I> {
 
     fn i2c_transfer(&mut self, messages: &mut [i2c::Message]) -> Result<(), Self::Error> {
         let mut message_buffer: [::i2c::i2c_msg; ::i2c::I2C_RDWR_IOCTL_MAX_MSGS] = unsafe {
-            mem::zeroed()
+            mem::uninitialized()
         };
         assert!(messages.len() <= message_buffer.len());
 

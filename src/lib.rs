@@ -290,7 +290,7 @@ impl<I: AsRawFd> I2c<I> {
     /// See the `I2C_RDWR` ioctl for more information.
     pub fn i2c_transfer(&mut self, messages: &mut [Message]) -> io::Result<()> {
         let mut message_buffer: [i2c::i2c_msg; i2c::I2C_RDWR_IOCTL_MAX_MSGS] = unsafe {
-            mem::zeroed()
+            mem::uninitialized()
         };
         assert!(messages.len() <= message_buffer.len());
 
