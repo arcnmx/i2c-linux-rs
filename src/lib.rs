@@ -150,7 +150,6 @@ bitflags! {
 /// A safe wrapper around an I2C device.
 pub struct I2c<I> {
     inner: I,
-    message_buffer: Box<[i2c::i2c_msg; i2c::I2C_RDWR_IOCTL_MAX_MSGS]>,
     address: Option<u16>,
     address_10bit: bool,
     functionality: Option<Functionality>,
@@ -169,7 +168,6 @@ impl<I> I2c<I> {
     pub fn new(device: I) -> Self {
         I2c {
             inner: device,
-            message_buffer: Box::new(unsafe { mem::zeroed() }),
             address: None,
             address_10bit: false,
             functionality: None,
@@ -291,9 +289,12 @@ impl<I: AsRawFd> I2c<I> {
     ///
     /// See the `I2C_RDWR` ioctl for more information.
     pub fn i2c_transfer(&mut self, messages: &mut [Message]) -> io::Result<()> {
-        assert!(messages.len() <= self.message_buffer.len());
+        let mut message_buffer: [i2c::i2c_msg; i2c::I2C_RDWR_IOCTL_MAX_MSGS] = unsafe {
+            mem::uninitialized()
+        };
+        assert!(messages.len() <= message_buffer.len());
 
-        self.message_buffer.iter_mut().zip(messages.iter_mut())
+        message_buffer.iter_mut().zip(messages.iter_mut())
             .for_each(|(out, msg)| *out = match *msg {
                 Message::Read { address, ref mut data, flags } => i2c::i2c_msg {
                     addr: address,
@@ -310,10 +311,10 @@ impl<I: AsRawFd> I2c<I> {
             });
 
         let res = unsafe {
-            i2c::i2c_rdwr(self.as_raw_fd(), &mut self.message_buffer[..messages.len()])?;
+            i2c::i2c_rdwr(self.as_raw_fd(), &mut message_buffer[..messages.len()])?;
         };
 
-        self.message_buffer.iter().zip(messages.iter_mut())
+        message_buffer.iter().zip(messages.iter_mut())
             .for_each(|(msg, out)| match *out {
                 Message::Read { ref mut data, .. } => data.resize_to(msg.len as usize),
                 Message::Write { .. } => (),
