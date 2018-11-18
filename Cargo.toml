@@ -1,6 +1,6 @@
 [package]
 name = "i2c-linux"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["arcnmx"]
 
 description = "Linux I2C device interface"
