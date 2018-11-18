@@ -1,0 +1,10 @@
+(function() {var implementors = {};
+implementors["i2c_linux"] = [{text:"impl !<a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/marker/trait.Send.html\" title=\"trait core::marker::Send\">Send</a> for <a class=\"struct\" href=\"i2c_linux/struct.Enumerator.html\" title=\"struct i2c_linux::Enumerator\">Enumerator</a>",synthetic:true,types:["i2c_linux::enumerate::Enumerator"]},{text:"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/marker/trait.Send.html\" title=\"trait core::marker::Send\">Send</a> for <a class=\"struct\" href=\"i2c_linux/struct.ReadFlags.html\" title=\"struct i2c_linux::ReadFlags\">ReadFlags</a>",synthetic:true,types:["i2c_linux::ReadFlags"]},{text:"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/marker/trait.Send.html\" title=\"trait core::marker::Send\">Send</a> for <a class=\"struct\" href=\"i2c_linux/struct.WriteFlags.html\" title=\"struct i2c_linux::WriteFlags\">WriteFlags</a>",synthetic:true,types:["i2c_linux::WriteFlags"]},{text:"impl&lt;I&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/marker/trait.Send.html\" title=\"trait core::marker::Send\">Send</a> for <a class=\"struct\" href=\"i2c_linux/struct.I2c.html\" title=\"struct i2c_linux::I2c\">I2c</a>&lt;I&gt; <span class=\"where fmt-newline\">where<br>&nbsp;&nbsp;&nbsp;&nbsp;I: <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/marker/trait.Send.html\" title=\"trait core::marker::Send\">Send</a>,&nbsp;</span>",synthetic:true,types:["i2c_linux::I2c"]},{text:"impl&lt;'a&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/marker/trait.Send.html\" title=\"trait core::marker::Send\">Send</a> for <a class=\"enum\" href=\"i2c_linux/enum.Message.html\" title=\"enum i2c_linux::Message\">Message</a>&lt;'a&gt;",synthetic:true,types:["i2c_linux::Message"]},];
+
+            if (window.register_implementors) {
+                window.register_implementors(implementors);
+            } else {
+                window.pending_implementors = implementors;
+            }
+        
+})()
