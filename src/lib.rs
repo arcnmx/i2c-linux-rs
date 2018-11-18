@@ -18,6 +18,11 @@
 //! # }
 //! # fn main() { main_res().unwrap() }
 //! ```
+//!
+//! # Cargo Features
+//!
+//! - `i2c` will impl [i2c](https://crates.io/crates/i2c) traits for `I2c`.
+//! - `udev` must be enabled to use `Enumerator`.
 
 #[macro_use]
 extern crate bitflags;
