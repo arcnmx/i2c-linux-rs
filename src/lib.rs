@@ -1,5 +1,5 @@
 #![deny(missing_docs)]
-#![doc(html_root_url = "http://arcnmx.github.io/i2c-linux-rs/")]
+#![doc(html_root_url = "https://docs.rs/i2c-linux/0.1.2/")]
 
 //! A safe interface to the Linux I2C and SMBus userspace subsystem.
 //!

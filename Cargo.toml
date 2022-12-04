@@ -6,13 +6,12 @@ authors = ["arcnmx"]
 description = "Linux I2C device interface"
 keywords = ["i2c", "i2c-dev", "i2cdev", "smbus"]
 
-documentation = "http://arcnmx.github.io/i2c-linux-rs/i2c_linux"
+documentation = "https://docs.rs/i2c-linux"
 repository = "https://github.com/arcnmx/i2c-linux-rs"
 readme = "README.md"
 license = "MIT"
 
 [badges]
-travis-ci = { repository = "arcnmx/i2c-linux-rs" }
 maintenance = { status = "passively-maintained" }
 
 [dependencies]
