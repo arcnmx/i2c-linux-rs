@@ -1,5 +1,6 @@
 #![deny(missing_docs)]
-#![doc(html_root_url = "https://docs.rs/i2c-linux/0.1.2/")]
+#![doc(html_root_url = "https://docs.rs/i2c-linux/0.2.0/")]
+#![cfg_attr(feature = "doc", feature(doc_cfg))]
 
 //! A safe interface to the Linux I2C and SMBus userspace subsystem.
 //!
@@ -41,12 +42,15 @@ use {
 };
 
 #[cfg(feature = "udev")]
-mod enumerate;
+#[cfg_attr(feature = "doc", doc(cfg(feature = "udev")))]
+pub mod enumerate;
 
 #[cfg(feature = "udev")]
+#[cfg_attr(feature = "doc", doc(cfg(feature = "udev")))]
 pub use enumerate::Enumerator;
 
 #[cfg(feature = "i2c")]
+#[cfg_attr(feature = "doc", doc(cfg(feature = "i2c")))]
 mod i2c_impl;
 
 /// Part of a combined I2C transaction.

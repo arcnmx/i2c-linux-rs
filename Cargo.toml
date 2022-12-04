@@ -1,6 +1,6 @@
 [package]
 name = "i2c-linux"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["arcnmx"]
 edition = "2018"
 
@@ -26,7 +26,10 @@ i2c-linux-sys = "0.2"
 resize-slice = "0.1"
 bitflags = "1"
 i2c = { version = "0.1", optional = true }
-udev = { version = "0.2", optional = true }
+udev = { version = "0.7", optional = true }
+
+[features]
+doc = []
 
 [package.metadata.docs.rs]
 all-features = true

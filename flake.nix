@@ -97,7 +97,7 @@
         inherit (outputs'devShells'plain.override { enableRust = false; }) buildInputs nativeBuildInputs;
         src = source;
         cargoBuildFlags = [ "--all" ];
-        cargoTestFlags = [ "--all" "--all-features" ];
+        cargoTestFlags = [ "--all" "--features=i2c,udev" ];
         buildType = "debug";
         meta.name = "cargo test";
       };

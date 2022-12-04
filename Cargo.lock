@@ -25,7 +25,7 @@ dependencies = [
 
 [[package]]
 name = "i2c-linux"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "bitflags",
  "i2c",
@@ -78,12 +78,13 @@ dependencies = [
 
 [[package]]
 name = "udev"
-version = "0.2.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "47504d1a49b2ea1b133e7ddd1d9f0a83cf03feb9b440c2c470d06db4589cf301"
+checksum = "4ebdbbd670373442a12fe9ef7aeb53aec4147a5a27a00bbc3ab639f08f48191a"
 dependencies = [
  "libc",
  "libudev-sys",
+ "pkg-config",
 ]
 
 [[package]]
