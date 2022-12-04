@@ -1,5 +1,6 @@
 //! I2c device enumeration via [udev].
 
+pub use udev::Device as UdevDevice;
 use {
     crate::I2c,
     std::{fs::File, io, path::Path},
@@ -67,17 +68,17 @@ impl<'a> Iterator for DeviceIterator<'a> {
 /// An enumerated i2c device.
 #[derive(Debug, Clone)]
 pub struct EnumeratedDevice {
-    device: udev::Device,
+    device: UdevDevice,
 }
 
 impl EnumeratedDevice {
     /// Manually construct an enumerated i2c device.
-    pub fn new(device: udev::Device) -> Self {
+    pub fn new(device: UdevDevice) -> Self {
         Self { device }
     }
 
     /// I2c device information.
-    pub fn device(&self) -> &udev::Device {
+    pub fn udev_device(&self) -> &UdevDevice {
         &self.device
     }
 
