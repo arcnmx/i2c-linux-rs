@@ -1,10 +1,10 @@
-use std::os::unix::io::AsRawFd;
-use std::io;
-use std::mem::MaybeUninit;
-use resize_slice::ResizeSlice;
-use i2c::{ReadFlags as I2cReadFlags, WriteFlags as I2cWriteFlags};
-use i2c_linux_sys::{Flags, i2c_msg, i2c_rdwr, I2C_RDWR_IOCTL_MAX_MSGS};
-use super::{I2c, ReadFlags, WriteFlags, ReadWrite};
+use {
+    super::{I2c, ReadFlags, ReadWrite, WriteFlags},
+    i2c::{ReadFlags as I2cReadFlags, WriteFlags as I2cWriteFlags},
+    i2c_linux_sys::{i2c_msg, i2c_rdwr, Flags, I2C_RDWR_IOCTL_MAX_MSGS},
+    resize_slice::ResizeSlice,
+    std::{io, mem::MaybeUninit, os::unix::io::AsRawFd},
+};
 
 impl<I: AsRawFd> i2c::Master for I2c<I> {
     type Error = io::Error;
@@ -91,13 +91,21 @@ impl<I: AsRawFd> i2c::BulkTransfer for I2c<I> {
 
         for (out, msg) in message_buffer.iter_mut().zip(messages.iter_mut()) {
             out.write(match *msg {
-                i2c::Message::Read { address, ref mut data, flags } => i2c_msg {
+                i2c::Message::Read {
+                    address,
+                    ref mut data,
+                    flags,
+                } => i2c_msg {
                     addr: address,
                     flags: Flags::from_bits_truncate(ReadFlags::from(flags).bits()) | Flags::RD,
                     len: data.len() as _,
                     buf: data.as_mut_ptr(),
                 },
-                i2c::Message::Write { address, ref data, flags } => i2c_msg {
+                i2c::Message::Write {
+                    address,
+                    ref data,
+                    flags,
+                } => i2c_msg {
                     addr: address,
                     flags: Flags::from_bits_truncate(WriteFlags::from(flags).bits()),
                     len: data.len() as _,
@@ -105,9 +113,7 @@ impl<I: AsRawFd> i2c::BulkTransfer for I2c<I> {
                 },
             });
         }
-        let messages_raw = unsafe {
-            crate::transmute_slice_mut(&mut message_buffer[..messages.len()])
-        };
+        let messages_raw = unsafe { crate::transmute_slice_mut(&mut message_buffer[..messages.len()]) };
 
         let res = unsafe {
             i2c_rdwr(self.as_raw_fd(), messages_raw)?;
