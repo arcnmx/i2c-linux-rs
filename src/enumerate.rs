@@ -65,6 +65,7 @@ impl<'a> Iterator for DeviceIterator<'a> {
 }
 
 /// An enumerated i2c device.
+#[derive(Debug, Clone)]
 pub struct EnumeratedDevice {
     device: udev::Device,
 }
