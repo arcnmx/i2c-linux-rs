@@ -1,10 +1,9 @@
-use i2c_gen as i2c;
-
 use std::os::unix::io::AsRawFd;
 use std::io;
-use std::mem;
+use std::mem::MaybeUninit;
 use resize_slice::ResizeSlice;
-use i2c_gen::{ReadFlags as I2cReadFlags, WriteFlags as I2cWriteFlags};
+use i2c::{ReadFlags as I2cReadFlags, WriteFlags as I2cWriteFlags};
+use i2c_linux_sys::{Flags, i2c_msg, i2c_rdwr, I2C_RDWR_IOCTL_MAX_MSGS};
 use super::{I2c, ReadFlags, WriteFlags, ReadWrite};
 
 impl<I: AsRawFd> i2c::Master for I2c<I> {
@@ -87,36 +86,39 @@ impl<I: AsRawFd> i2c::BulkTransfer for I2c<I> {
     }
 
     fn i2c_transfer(&mut self, messages: &mut [i2c::Message]) -> Result<(), Self::Error> {
-        let mut message_buffer: [::i2c::i2c_msg; ::i2c::I2C_RDWR_IOCTL_MAX_MSGS] = unsafe {
-            mem::uninitialized()
-        };
+        let mut message_buffer = [MaybeUninit::<i2c_msg>::uninit(); I2C_RDWR_IOCTL_MAX_MSGS];
         assert!(messages.len() <= message_buffer.len());
 
-        message_buffer.iter_mut().zip(messages.iter_mut())
-            .for_each(|(out, msg)| *out = match *msg {
-                i2c::Message::Read { address, ref mut data, flags } => ::i2c::i2c_msg {
+        for (out, msg) in message_buffer.iter_mut().zip(messages.iter_mut()) {
+            out.write(match *msg {
+                i2c::Message::Read { address, ref mut data, flags } => i2c_msg {
                     addr: address,
-                    flags: ::i2c::Flags::from_bits_truncate(ReadFlags::from(flags).bits()) | ::i2c::Flags::RD,
+                    flags: Flags::from_bits_truncate(ReadFlags::from(flags).bits()) | Flags::RD,
                     len: data.len() as _,
                     buf: data.as_mut_ptr(),
                 },
-                i2c::Message::Write { address, ref data, flags } => ::i2c::i2c_msg {
+                i2c::Message::Write { address, ref data, flags } => i2c_msg {
                     addr: address,
-                    flags: ::i2c::Flags::from_bits_truncate(WriteFlags::from(flags).bits()),
+                    flags: Flags::from_bits_truncate(WriteFlags::from(flags).bits()),
                     len: data.len() as _,
                     buf: data.as_ptr() as *mut _,
                 },
             });
-
-        let res = unsafe {
-            ::i2c::i2c_rdwr(self.as_raw_fd(), &mut message_buffer[..messages.len()])?;
+        }
+        let messages_raw = unsafe {
+            crate::transmute_slice_mut(&mut message_buffer[..messages.len()])
         };
 
-        message_buffer.iter().zip(messages.iter_mut())
-            .for_each(|(msg, out)| match *out {
+        let res = unsafe {
+            i2c_rdwr(self.as_raw_fd(), messages_raw)?;
+        };
+
+        for (msg, out) in messages_raw.iter().zip(messages.iter_mut()) {
+            match *out {
                 i2c::Message::Read { ref mut data, .. } => data.resize_to(msg.len as usize),
                 i2c::Message::Write { .. } => (),
-            });
+            }
+        }
 
         Ok(res)
     }

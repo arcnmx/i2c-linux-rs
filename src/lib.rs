@@ -6,7 +6,6 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! extern crate i2c_linux;
 //! use i2c_linux::I2c;
 //!
 //! # fn main_res() -> ::std::io::Result<()> {
@@ -24,24 +23,18 @@
 //! - `i2c` will impl [i2c](https://crates.io/crates/i2c) traits for `I2c`.
 //! - `udev` must be enabled to use `Enumerator`.
 
-#[macro_use]
-extern crate bitflags;
-extern crate resize_slice;
-extern crate i2c_linux_sys as i2c;
-#[cfg(feature = "i2c")]
-extern crate i2c as i2c_gen;
-#[cfg(feature = "udev")]
-extern crate udev;
-
 use std::time::Duration;
 use std::path::Path;
 use std::os::unix::io::{AsRawFd, IntoRawFd, FromRawFd, RawFd};
 use std::io::{self, Read, Write};
 use std::fs::{File, OpenOptions};
-use std::{mem, cmp, iter};
+use std::mem::{MaybeUninit, transmute};
+use std::{cmp, iter};
+use bitflags::bitflags;
 use resize_slice::ResizeSlice;
+use i2c_linux_sys as i2c;
 
-pub use i2c::{SmbusReadWrite as ReadWrite, Functionality};
+pub use i2c_linux_sys::{SmbusReadWrite as ReadWrite, Functionality};
 
 #[cfg(feature = "udev")]
 mod enumerate;
@@ -294,13 +287,11 @@ impl<I: AsRawFd> I2c<I> {
     ///
     /// See the `I2C_RDWR` ioctl for more information.
     pub fn i2c_transfer(&mut self, messages: &mut [Message]) -> io::Result<()> {
-        let mut message_buffer: [i2c::i2c_msg; i2c::I2C_RDWR_IOCTL_MAX_MSGS] = unsafe {
-            mem::uninitialized()
-        };
+        let mut message_buffer = [MaybeUninit::<i2c::i2c_msg>::uninit(); i2c::I2C_RDWR_IOCTL_MAX_MSGS];
         assert!(messages.len() <= message_buffer.len());
 
-        message_buffer.iter_mut().zip(messages.iter_mut())
-            .for_each(|(out, msg)| *out = match *msg {
+        for (out, msg) in message_buffer.iter_mut().zip(messages.iter_mut()) {
+            out.write(match *msg {
                 Message::Read { address, ref mut data, flags } => i2c::i2c_msg {
                     addr: address,
                     flags: i2c::Flags::from_bits_truncate(flags.bits()) | i2c::Flags::RD,
@@ -314,16 +305,21 @@ impl<I: AsRawFd> I2c<I> {
                     buf: data.as_ptr() as *mut _,
                 },
             });
-
-        let res = unsafe {
-            i2c::i2c_rdwr(self.as_raw_fd(), &mut message_buffer[..messages.len()])?;
+        }
+        let messages_raw: &mut [i2c::i2c_msg] = unsafe {
+            transmute_slice_mut(&mut message_buffer[..messages.len()])
         };
 
-        message_buffer.iter().zip(messages.iter_mut())
-            .for_each(|(msg, out)| match *out {
+        let res = unsafe {
+            i2c::i2c_rdwr(self.as_raw_fd(), messages_raw)?;
+        };
+
+        for (msg, out) in messages_raw.iter().zip(messages.iter_mut()) {
+            match out {
                 Message::Read { ref mut data, .. } => data.resize_to(msg.len as usize),
                 Message::Write { .. } => (),
-            });
+            }
+        }
 
         Ok(res)
     }
@@ -410,12 +406,12 @@ impl<I: AsRawFd> I2c<I> {
                     if let Some(address) = self.address {
                         let mut msgs = [
                             Message::Write {
-                                address: address,
+                                address,
                                 data: &[command],
                                 flags: if self.address_10bit { WriteFlags::TENBIT_ADDR } else { WriteFlags::default() },
                             },
                             Message::Read {
-                                address: address,
+                                address,
                                 data: value,
                                 flags: if self.address_10bit { ReadFlags::TENBIT_ADDR } else { ReadFlags::default() },
                             },
@@ -446,12 +442,12 @@ impl<I: AsRawFd> I2c<I> {
                         return if func.contains(Functionality::NO_START) {
                             self.i2c_transfer(&mut [
                                 Message::Write {
-                                    address: address,
+                                    address,
                                     data: &[command],
-                                    flags: flags,
+                                    flags,
                                 },
                                 Message::Write {
-                                    address: address,
+                                    address,
                                     data: value,
                                     flags: flags | WriteFlags::NO_START,
                                 },
@@ -459,9 +455,9 @@ impl<I: AsRawFd> I2c<I> {
                         } else {
                             self.i2c_transfer(&mut [
                                 Message::Write {
-                                    address: address,
+                                    address,
                                     data: &iter::once(command).chain(value.iter().cloned()).collect::<Vec<_>>(),
-                                    flags: flags,
+                                    flags,
                                 },
                             ])
                         }
@@ -490,4 +486,8 @@ impl<I: Write> Write for I2c<I> {
     fn flush(&mut self) -> io::Result<()> {
         self.inner.flush()
     }
+}
+
+unsafe fn transmute_slice_mut<'a, R, T>(s: &'a mut [T]) -> &'a mut [R] {
+    transmute(s)
 }

@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io;
-use {udev, I2c};
+use {udev, crate::I2c};
 
 /// Enumerates all available i2c devices on the system.
 ///

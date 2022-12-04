@@ -2,6 +2,7 @@
 name = "i2c-linux"
 version = "0.1.2"
 authors = ["arcnmx"]
+edition = "2018"
 
 description = "Linux I2C device interface"
 keywords = ["i2c", "i2c-dev", "i2cdev", "smbus"]
@@ -11,15 +12,21 @@ repository = "https://github.com/arcnmx/i2c-linux-rs"
 readme = "README.md"
 license = "MIT"
 
+include = [
+	"/src/**.rs",
+	"/README*",
+	"/COPYING*",
+]
+
 [badges]
 maintenance = { status = "passively-maintained" }
 
 [dependencies]
-i2c-linux-sys = "^0.2.0"
-resize-slice = "^0.1.2"
-bitflags = "^1.0.1"
-i2c = { version = "^0.1.0", optional = true }
-udev = { version = "^0.2.0", optional = true }
+i2c-linux-sys = "0.2"
+resize-slice = "0.1"
+bitflags = "1"
+i2c = { version = "0.1", optional = true }
+udev = { version = "0.2", optional = true }
 
 [package.metadata.docs.rs]
 all-features = true
